@@ -1,0 +1,31 @@
+{
+    "name": "gboudreau/ws-api-php",
+    "type": "library",
+    "description": "This library allows you to access your own account using the Wealthsimple (GraphQL) API using PHP.",
+    "keywords": ["wealthsimple"],
+    "homepage": "https://github.com/gboudreau/ws-api-php",
+    "license": "GPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Guillaume Boudreau",
+            "email": "guillaume@pommepause.com",
+            "homepage": "https://www.pommepause.com",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/gboudreau/ws-api-php/issues",
+        "source": "https://github.com/gboudreau/ws-api-php",
+        "docs": "https://github.com/gboudreau/ws-api-php"
+    },
+    "require": {
+        "php": ">=7.4",
+        "ext-curl": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "PPFinances\\Wealthsimple\\": "src/"
+        }
+    }
+}
