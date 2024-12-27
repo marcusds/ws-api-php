@@ -13,19 +13,64 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
         'FetchSecurityHistoricalQuotes' => "query FetchSecurityHistoricalQuotes(\$id: ID!, \$timerange: String! = \"1d\") {\n  security(id: \$id) {\n    id\n    historicalQuotes(timeRange: \$timerange) {\n      ...HistoricalQuote\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment HistoricalQuote on HistoricalQuote {\n  adjustedPrice\n  currency\n  date\n  securityId\n  time\n  __typename\n}",
         'FetchAccountsWithBalance'      => "query FetchAccountsWithBalance(\$ids: [String!]!, \$type: BalanceType!) {\n  accounts(ids: \$ids) {\n    ...AccountWithBalance\n    __typename\n  }\n}\n\nfragment AccountWithBalance on Account {\n  id\n  custodianAccounts {\n    id\n    financials {\n      ... on CustodianAccountFinancialsSo {\n        balance(type: \$type) {\n          ...Balance\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Balance on Balance {\n  quantity\n  securityId\n  __typename\n}",
         'FetchSecurityMarketData'       => "query FetchSecurityMarketData(\$id: ID!) {\n  security(id: \$id) {\n    id\n    ...SecurityMarketData\n    __typename\n  }\n}\n\nfragment SecurityMarketData on Security {\n  id\n  allowedOrderSubtypes\n  marginRates {\n    ...MarginRates\n    __typename\n  }\n  fundamentals {\n    avgVolume\n    high52Week\n    low52Week\n    yield\n    peRatio\n    marketCap\n    currency\n    description\n    __typename\n  }\n  quote {\n    bid\n    ask\n    open\n    high\n    low\n    volume\n    askSize\n    bidSize\n    last\n    lastSize\n    quotedAsOf\n    quoteDate\n    amount\n    previousClose\n    __typename\n  }\n  stock {\n    primaryExchange\n    primaryMic\n    name\n    symbol\n    __typename\n  }\n  __typename\n}\n\nfragment MarginRates on MarginRates {\n  clientMarginRate\n  __typename\n}",
+        'FetchFundsTransfer'            => "query FetchFundsTransfer(\$id: ID!) {\n  fundsTransfer: funds_transfer(id: \$id, include_cancelled: true) {\n    ...FundsTransfer\n    __typename\n  }\n}\n\nfragment FundsTransfer on FundsTransfer {\n  id\n  status\n  cancellable\n  rejectReason: reject_reason\n  schedule {\n    id\n    __typename\n  }\n  source {\n    ...BankAccountOwner\n    __typename\n  }\n  destination {\n    ...BankAccountOwner\n    __typename\n  }\n  __typename\n}\n\nfragment BankAccountOwner on BankAccountOwner {\n  bankAccount: bank_account {\n    ...BankAccount\n    __typename\n  }\n  __typename\n}\n\nfragment BankAccount on BankAccount {\n  id\n  accountName: account_name\n  corporate\n  createdAt: created_at\n  currency\n  institutionName: institution_name\n  jurisdiction\n  nickname\n  type\n  updatedAt: updated_at\n  verificationDocuments: verification_documents {\n    ...BankVerificationDocument\n    __typename\n  }\n  verifications {\n    ...BankAccountVerification\n    __typename\n  }\n  ...CaBankAccount\n  ...UsBankAccount\n  __typename\n}\n\nfragment CaBankAccount on CaBankAccount {\n  accountName: account_name\n  accountNumber: account_number\n  __typename\n}\n\nfragment UsBankAccount on UsBankAccount {\n  accountName: account_name\n  accountNumber: account_number\n  __typename\n}\n\nfragment BankVerificationDocument on VerificationDocument {\n  id\n  acceptable\n  updatedAt: updated_at\n  createdAt: created_at\n  documentId: document_id\n  documentType: document_type\n  rejectReason: reject_reason\n  reviewedAt: reviewed_at\n  reviewedBy: reviewed_by\n  __typename\n}\n\nfragment BankAccountVerification on BankAccountVerification {\n  custodianProcessedAt: custodian_processed_at\n  custodianStatus: custodian_status\n  document {\n    ...BankVerificationDocument\n    __typename\n  }\n  __typename\n}",
+        'FetchInstitutionalTransfer'    => "query FetchInstitutionalTransfer(\$id: ID!) {\n  accountTransfer(id: \$id) {\n    ...InstitutionalTransfer\n    __typename\n  }\n}\n\nfragment InstitutionalTransfer on InstitutionalTransfer {\n  id\n  accountId: account_id\n  state\n  documentId: document_id\n  documentType: document_type\n  expectedCompletionDate: expected_completion_date\n  timelineExpectation: timeline_expectation {\n    lowerBound: lower_bound\n    upperBound: upper_bound\n    __typename\n  }\n  estimatedCompletionMaximum: estimated_completion_maximum\n  estimatedCompletionMinimum: estimated_completion_minimum\n  institutionName: institution_name\n  transferStatus: external_state\n  redactedInstitutionAccountNumber: redacted_institution_account_number\n  expectedValue: expected_value\n  transferType: transfer_type\n  cancellable\n  pdfUrl: pdf_url\n  clientVisibleState: client_visible_state\n  shortStatusDescription: short_status_description\n  longStatusDescription: long_status_description\n  progressPercentage: progress_percentage\n  type\n  rolloverType: rollover_type\n  autoSignatureEligible: auto_signature_eligible\n  parentInstitution: parent_institution {\n    id\n    name\n    __typename\n  }\n  stateHistories: state_histories {\n    id\n    state\n    notes\n    transitionSubmittedBy: transition_submitted_by\n    transitionedAt: transitioned_at\n    transitionCode: transition_code\n    __typename\n  }\n  transferFeeReimbursement: transfer_fee_reimbursement {\n    id\n    feeAmount: fee_amount\n    __typename\n  }\n  docusignSentViaEmail: docusign_sent_via_email\n  clientAccountType: client_account_type\n  primaryClientIdentityId: primary_client_identity_id\n  primaryOwnerSigned: primary_owner_signed\n  secondaryOwnerSigned: secondary_owner_signed\n  __typename\n}",
     ];
 
-    public function getAccounts(bool $open_only = TRUE): array {
-        return $this->doGraphQLQuery(
-            'FetchAllAccountFinancials',
-            [
-                'pageSize' => 25,
-                'identityId' => $this->getTokenInfo()->identity_canonical_id,
-            ],
-            'identity.accounts.edges',
-            'array',
-            $open_only ? fn($account) => $account->status === 'open' : NULL,
-        );
+    private $accounts_cache = [];
+    public function getAccounts(bool $open_only = TRUE, bool $use_cache = TRUE): array {
+        $cache_key = $open_only ? 'open' : 'all';
+        if (!isset($accounts_cache[$cache_key]) || !$use_cache) {
+            $accounts = $this->doGraphQLQuery(
+                'FetchAllAccountFinancials',
+                [
+                    'pageSize' => 25,
+                    'identityId' => $this->getTokenInfo()->identity_canonical_id,
+                ],
+                'identity.accounts.edges',
+                'array',
+                $open_only ? fn($account) => $account->status === 'open' : NULL,
+            );
+            array_walk($accounts, fn($account) => $this->_accountAddDescription($account));
+            $accounts_cache[$cache_key] = $accounts;
+        }
+        return $accounts_cache[$cache_key];
+    }
+
+    private function _accountAddDescription($account) {
+        $account->number = $account->id;
+        // This is the account number visible in the WS app:
+        foreach ($account->custodianAccounts as $ca) {
+            if (($ca->branch === 'WS' || $ca->branch === 'TR') && $ca->status === 'open') {
+                $account->number = $ca->id;
+            }
+        }
+
+        $account->description = $account->unifiedAccountType;
+        if (!empty($account->nickname)) {
+            $account->description = $account->nickname;
+        } elseif ($account->unifiedAccountType === 'CASH') {
+            if ($account->accountOwnerConfiguration === 'MULTI_OWNER') {
+                $account->description = "Cash: joint";
+            } else {
+                $account->description = "Cash";
+            }
+        } elseif ($account->unifiedAccountType === 'SELF_DIRECTED_RRSP') {
+            $account->description = "RRSP: self-directed - $account->currency";
+        } elseif ($account->unifiedAccountType === 'MANAGED_RRSP') {
+            $account->description = "RRSP: managed - $account->currency";
+        } elseif ($account->unifiedAccountType === 'SELF_DIRECTED_TFSA') {
+            $account->description = "TFSA: self-directed - $account->currency";
+        } elseif ($account->unifiedAccountType === 'MANAGED_TFSA') {
+            $account->description = "TFSA: managed - $account->currency";
+        } elseif ($account->unifiedAccountType === 'SELF_DIRECTED_JOINT_NON_REGISTERED') {
+            $account->description = "Non-registered: self-directed - joint";
+        } elseif ($account->unifiedAccountType === 'MANAGED_JOINT') {
+            $account->description = "Non-registered: managed - joint";
+        } elseif ($account->unifiedAccountType === 'SELF_DIRECTED_CRYPTO') {
+            $account->description = "Crypt";
+        }
+        // @TODO Add other types
     }
 
     public function getAccountBalances(string $account_id) : array {
@@ -49,7 +94,7 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
     }
 
     public function getActivities(string $account_id, int $how_many = 50, string $order_by = 'OCCURRED_AT_DESC', bool $ignore_rejected = TRUE): array {
-        return $this->doGraphQLQuery(
+        $activities = $this->doGraphQLQuery(
             'FetchActivityFeedItems',
             [
                 'orderBy' => $order_by,
@@ -62,6 +107,66 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             'activityFeedItems.edges',
             'array',
             $ignore_rejected ? fn($act) => strpos($act->status ?? '', 'rejected') === FALSE : NULL,
+        );
+        array_walk($activities, fn($act) => $this->_activityAddDescription($act));
+        return $activities;
+    }
+
+    private function _activityAddDescription(&$act) {
+        $act->description = "$act->type: $act->subType";
+        if ($act->type === 'INTERNAL_TRANSFER') {
+            $accounts = $this->getAccounts(FALSE);
+            $matching = array_filter($accounts, fn($acc) => $acc->id === $act->opposingAccountId);
+            $target_account = array_pop($matching);
+            if ($target_account) {
+                $account_description = "$target_account->description ($target_account->number)";
+            } else {
+                $account_description = $act->opposingAccountId;
+            }
+            if ($act->subType === 'SOURCE') {
+                $act->description = "Transfer out: Transfer to Wealthsimple $account_description";
+            } else {
+                $act->description = "Transfer in: Transfer from Wealthsimple $account_description";
+            }
+        } elseif ($act->type === 'DIY_BUY' || $act->type === 'DIY_SELL') {
+            $verb = ucfirst(strtolower(str_replace('_', ' ', $act->subType)));
+            $action = $act->type === 'DIY_BUY' ? 'buy' : 'sell';
+            $status = strtolower(str_replace('_', ' ', $act->status));
+            $act->description = "$verb $action: $status " . ((float) $act->assetQuantity) . " x [$act->securityId] @ " . ($act->amount / $act->assetQuantity);
+        } elseif ($act->type === 'DEPOSIT' && ($act->subType === 'E_TRANSFER' || $act->subType === 'E_TRANSFER_FUNDING')) {
+            $act->description = "Deposit: Interac e-transfer from $act->eTransferName $act->eTransferEmail";
+        } elseif ($act->type === 'DEPOSIT' && $act->subType === 'EFT') {
+            $details = $this->getETFDetails($act->externalCanonicalId);
+            $act->description = "Deposit: EFT from " . ($details->source->bankAccount->nickname ?? $details->source->bankAccount->accountName) . " {$details->source->bankAccount->accountNumber}";
+        } elseif ($act->type === 'REFUND' && $act->subType === 'TRANSFER_FEE_REFUND') {
+            $act->description = "Reimbursement: account transfer fee";
+        } elseif ($act->type === 'INSTITUTIONAL_TRANSFER_INTENT' && $act->subType === 'TRANSFER_IN') {
+            $details = $this->getTransferDetails($act->externalCanonicalId);
+            $verb = ucfirst(strtolower(str_replace('_', '-', $details->transferType)));
+            $act->description = "Institutional transfer: $verb " . strtoupper($details->clientAccountType) . " account transfer from $details->institutionName ****$details->redactedInstitutionAccountNumber";
+        }
+        // @TODO Add other types
+    }
+
+    public function getETFDetails(string $funding_id): object {
+        return $this->doGraphQLQuery(
+            'FetchFundsTransfer',
+            [
+                'id' => $funding_id,
+            ],
+            'fundsTransfer',
+            'object',
+        );
+    }
+
+    public function getTransferDetails(string $transfer_id): object {
+        return $this->doGraphQLQuery(
+            'FetchInstitutionalTransfer',
+            [
+                'id' => $transfer_id,
+            ],
+            'accountTransfer',
+            'object',
         );
     }
 

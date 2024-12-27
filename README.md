@@ -64,11 +64,14 @@ $ws = WealthsimpleAPI::fromToken($session, $persist_session_fct);
 // 4. Use the API object to access your WS accounts
 $accounts = $ws->getAccounts();
 foreach ($accounts as $account) {
-    $value = $account->financials->currentCombined->netLiquidationValue->amount;
-    
-    // $account->branch = 'TR' for Trade, 'WS' for Cash & managed accounts (i.e. accounts you can't trade)
-    echo "Account: [$account->branch:$account->id] $account->nickname $account->type:$account->unifiedAccountType $account->currency\n";
+    echo "Account: $account->description ($account->number)\n";
+    if ($account->description === $account->unifiedAccountType) {
+        // This is an "unknown" account, for which description is generic; please open an issue on https://github.com/gboudreau/ws-api-php/issues and include the following:
+        echo "    Unknown account: " . json_encode($account) . "\n";
+    }
+
     if ($account->currency === 'CAD') {
+        $value = $account->financials->currentCombined->netLiquidationValue->amount;
         echo "  Net worth: $value $account->currency\n";
     }
     // Note: for USD accounts, $value is just the CAD value converted in USD, so it's not the real value of the account.
@@ -76,7 +79,8 @@ foreach ($accounts as $account) {
 
     // Cash and positions balances
     $balances = $ws->getAccountBalances($account->id);
-    echo "  Available (cash) balance: " . ($balances[$account->currency === 'USD' ? 'sec-c-usd' : 'sec-c-cad'] ?? 0) . " $account->currency\n";
+    $cash_balance = (float) $balances[$account->currency === 'USD' ? 'sec-c-usd' : 'sec-c-cad'] ?? 0;
+    echo "  Available (cash) balance: $cash_balance $account->currency\n";
     if (count($balances) > 1) {
         echo "  Other positions:\n";
         foreach ($balances as $sec_id => $bal) {
@@ -95,25 +99,17 @@ foreach ($accounts as $account) {
         $acts = array_reverse($acts);
     }
     foreach ($acts as $act) {
-        $what = '';
-        if ($act->status === 'FILLED') {
-            if ($act->type === 'DIY_SELL') {
-                $stock = getWSStockInfo($ws, $act->securityId);
-                $what = "= Sold " . ((float) $act->assetQuantity) . " x [$act->securityId] $stock->symbol @ " . ($act->amount / $act->assetQuantity);
-            } elseif ($act->type === 'DIY_BUY') {
-                $stock = getWSStockInfo($ws, $act->securityId);
-                $what = "= Bought " . ((float) $act->assetQuantity) . " x [$act->securityId] $stock->symbol @ " . ($act->amount / $act->assetQuantity);
+        if ($act->status === 'FILLED' && ($act->type === 'DIY_SELL' || $act->type === 'DIY_BUY')) {
+            $stock = getWSStockInfo($ws, $act->securityId);
+            $act->description = str_replace("[$act->securityId]", "$stock->primaryExchange:$stock->symbol", $act->description);
+            if ($act->type === 'DIY_BUY') {
+                $act->amountSign = 'negative';
             }
-        } elseif ($act->type === 'INSTITUTIONAL_TRANSFER_INTENT') {
-            $what = 'Account transfer from another institution';
-        } elseif ($act->subType === 'TRANSFER_FEE_REFUND') {
-            $what = 'Refund of account transfer fees';
-        } elseif ($account->branch === 'TR') {
-            $what = 'Unknown transaction type';
         }
-        echo "  - [" . date("Y-m-d H:i:s", strtotime($act->occurredAt)) . "] [$act->canonicalId] $act->type:$act->subType " . ($act->amountSign === 'positive' ? "+" : "-") . "$act->amount $act->currency $what\n";
-        if ($what === 'Unknown transaction type') {
-            echo "    " . json_encode($act) . "\n";
+        echo "  - [" . date("Y-m-d H:i:s", strtotime($act->occurredAt)) . "] [$act->canonicalId] $act->description = " . ($act->amountSign === 'positive' ? "+" : "-") . "$act->amount $act->currency\n";
+        if ($act->description === "$act->type: $act->subType") {
+            // This is an "unknown" transaction, for which description is generic; please open an issue on https://github.com/gboudreau/ws-api-php/issues and include the following:
+            echo "    Unknown activity: " . json_encode($act) . "\n";
         }
     }
     echo "\n";
