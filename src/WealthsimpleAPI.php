@@ -135,9 +135,13 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             $act->description = "$verb $action: $status " . ((float) $act->assetQuantity) . " x [$act->securityId] @ " . ($act->amount / $act->assetQuantity);
         } elseif ($act->type === 'DEPOSIT' && ($act->subType === 'E_TRANSFER' || $act->subType === 'E_TRANSFER_FUNDING')) {
             $act->description = "Deposit: Interac e-transfer from $act->eTransferName $act->eTransferEmail";
-        } elseif ($act->type === 'DEPOSIT' && $act->subType === 'EFT') {
+        } elseif ($act->subType === 'EFT') {
             $details = $this->getETFDetails($act->externalCanonicalId);
-            $act->description = "Deposit: EFT from " . ($details->source->bankAccount->nickname ?? $details->source->bankAccount->accountName) . " {$details->source->bankAccount->accountNumber}";
+            $type = ucfirst(strtolower($act->type));
+            $direction = $act->type === 'DEPOSIT' ? 'from' : 'to';
+            $prop = $act->type === 'DEPOSIT' ? 'source' : 'destination';
+            $bank_account = $details->{$prop}->bankAccount;
+            $act->description = "$type: EFT $direction " . ($bank_account->nickname ?? $bank_account->accountName) . " {$bank_account->accountNumber}";
         } elseif ($act->type === 'REFUND' && $act->subType === 'TRANSFER_FEE_REFUND') {
             $act->description = "Reimbursement: account transfer fee";
         } elseif ($act->type === 'INSTITUTIONAL_TRANSFER_INTENT' && $act->subType === 'TRANSFER_IN') {
