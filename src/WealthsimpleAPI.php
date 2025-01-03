@@ -148,6 +148,8 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             $details = $this->getTransferDetails($act->externalCanonicalId);
             $verb = ucfirst(strtolower(str_replace('_', '-', $details->transferType)));
             $act->description = "Institutional transfer: $verb " . strtoupper($details->clientAccountType) . " account transfer from $details->institutionName ****$details->redactedInstitutionAccountNumber";
+        } elseif ($act->type === 'INTEREST') {
+            $act->description = "Interest";
         }
         // @TODO Add other types
     }
