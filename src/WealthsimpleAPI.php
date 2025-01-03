@@ -133,8 +133,9 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             $action = $act->type === 'DIY_BUY' ? 'buy' : 'sell';
             $status = strtolower(str_replace('_', ' ', $act->status));
             $act->description = "$verb $action: $status " . ((float) $act->assetQuantity) . " x [$act->securityId] @ " . ($act->amount / $act->assetQuantity);
-        } elseif ($act->type === 'DEPOSIT' && ($act->subType === 'E_TRANSFER' || $act->subType === 'E_TRANSFER_FUNDING')) {
-            $act->description = "Deposit: Interac e-transfer from $act->eTransferName $act->eTransferEmail";
+        } elseif (($act->type === 'DEPOSIT' || $act->type === 'WITHDRAWAL') && ($act->subType === 'E_TRANSFER' || $act->subType === 'E_TRANSFER_FUNDING')) {
+            $direction = $act->type === 'WITHDRAWAL' ? 'to' : 'from';
+            $act->description = ucfirst(strtolower($act->type)) . ": Interac e-transfer $direction $act->eTransferName $act->eTransferEmail";
         } elseif ($act->subType === 'EFT') {
             $details = $this->getETFDetails($act->externalCanonicalId);
             $type = ucfirst(strtolower($act->type));
