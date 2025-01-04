@@ -61,6 +61,20 @@ $session = json_decode(file_get_contents(__DIR__ . '/session.json'));
 $ws = WealthsimpleAPI::fromToken($session, $persist_session_fct);
 // $persist_session_fct is needed here too, because the session may be updated if the access token expired, and thus this function will be called to save the new session
 
+// Optionally define functions to cache market data, if you want transactions' descriptions to show the security's symbol instead of its ID
+// eg. sec-s-e7947deb977341ff9f0ddcf13703e9a6 => TSX:XEQT
+$sec_info_getter_fn = function (string $ws_security_id) {
+    if ($market_data = @file_get_contents(sys_get_temp_dir() . "/ws-api-$ws_security_id.json")) {
+        return json_decode($market_data);
+    }
+    return NULL;
+};
+$sec_info_setter_fn = function (string $ws_security_id, object $market_data) {
+    file_put_contents(sys_get_temp_dir() . "/ws-api-$ws_security_id.json", json_encode($market_data));
+    return $market_data;
+};
+$ws->setSecurityMarketDataCache($sec_info_getter_fn, $sec_info_setter_fn);
+
 // 4. Use the API object to access your WS accounts
 $accounts = $ws->getAccounts();
 foreach ($accounts as $account) {
@@ -83,12 +97,11 @@ foreach ($accounts as $account) {
     echo "  Available (cash) balance: $cash_balance $account->currency\n";
     if (count($balances) > 1) {
         echo "  Other positions:\n";
-        foreach ($balances as $sec_id => $bal) {
-            if ($sec_id === 'sec-c-cad' || $sec_id === 'sec-c-usd') {
+        foreach ($balances as $security => $bal) {
+            if ($security === 'sec-c-cad' || $security === 'sec-c-usd') {
                 continue;
             }
-            $stock = getWSStockInfo($ws, $sec_id);
-            echo "  - {$stock->primaryExchange}:{$stock->symbol} x $bal\n";
+            echo "  - $security x $bal\n";
         }
     }
 
@@ -99,12 +112,8 @@ foreach ($accounts as $account) {
         $acts = array_reverse($acts);
     }
     foreach ($acts as $act) {
-        if ($act->status === 'FILLED' && ($act->type === 'DIY_SELL' || $act->type === 'DIY_BUY')) {
-            $stock = getWSStockInfo($ws, $act->securityId);
-            $act->description = str_replace("[$act->securityId]", "$stock->primaryExchange:$stock->symbol", $act->description);
-            if ($act->type === 'DIY_BUY') {
-                $act->amountSign = 'negative';
-            }
+        if ($act->type === 'DIY_BUY') {
+            $act->amountSign = 'negative';
         }
         echo "  - [" . date("Y-m-d H:i:s", strtotime($act->occurredAt)) . "] [$act->canonicalId] $act->description = " . ($act->amountSign === 'positive' ? "+" : "-") . "$act->amount $act->currency\n";
         if ($act->description === "$act->type: $act->subType") {
@@ -113,17 +122,5 @@ foreach ($accounts as $account) {
         }
     }
     echo "\n";
-}
-
-// This function is used to get a security (eg. stock) info, from a given security ID. This is useful to get a human-readable name for the security.
-// eg. sec-s-e7947deb977341ff9f0ddcf13703e9a6 => XEQT
-function getWSStockInfo($ws, $ws_security_id) {
-    // Instead of querying the WS API every time you need to find the symbol of a security ID, you should cache the results in a local storage (eg. database)
-    if ($market_data = @file_get_contents(sys_get_temp_dir() . "/ws-api-$ws_security_id.json")) {
-        return json_decode($market_data)->stock;
-    }
-    $market_data = $ws->getSecurityMarketData($ws_security_id);
-    file_put_contents(sys_get_temp_dir() . "/ws-api-$ws_security_id.json", json_encode($market_data));
-    return $market_data->stock;
 }
 ```

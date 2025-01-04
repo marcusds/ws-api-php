@@ -87,7 +87,11 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
         $balances = [];
         foreach ($accounts[0]->custodianAccounts as $ca) {
             foreach ($ca->financials->balance as $bal) {
-                $balances[$bal->securityId] = $bal->quantity;
+                $security = $bal->securityId;
+                if ($security !== 'sec-c-cad' && $security !== 'sec-c-usd') {
+                    $security = $this->securityIdToSymbol($security);
+                }
+                $balances[$security] = $bal->quantity;
             }
         }
         return $balances;
@@ -132,7 +136,8 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             $verb = ucfirst(strtolower(str_replace('_', ' ', $act->subType)));
             $action = $act->type === 'DIY_BUY' ? 'buy' : 'sell';
             $status = strtolower(str_replace('_', ' ', $act->status));
-            $act->description = "$verb $action: $status " . ((float) $act->assetQuantity) . " x [$act->securityId] @ " . ($act->amount / $act->assetQuantity);
+            $security = $this->securityIdToSymbol($act->securityId);
+            $act->description = "$verb $action: $status " . ((float) $act->assetQuantity) . " x $security @ " . ($act->amount / $act->assetQuantity);
         } elseif (($act->type === 'DEPOSIT' || $act->type === 'WITHDRAWAL') && ($act->subType === 'E_TRANSFER' || $act->subType === 'E_TRANSFER_FUNDING')) {
             $direction = $act->type === 'WITHDRAWAL' ? 'to' : 'from';
             $act->description = ucfirst(strtolower($act->type)) . ": Interac e-transfer $direction $act->eTransferName $act->eTransferEmail";
@@ -151,8 +156,23 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             $act->description = "Institutional transfer: $verb " . strtoupper($details->clientAccountType) . " account transfer from $details->institutionName ****$details->redactedInstitutionAccountNumber";
         } elseif ($act->type === 'INTEREST') {
             $act->description = "Interest";
+        } elseif ($act->type === 'DIVIDEND') {
+            $security = $this->securityIdToSymbol($act->securityId);
+            $act->description = "Dividend: $security";
         }
         // @TODO Add other types
+    }
+
+    protected function securityIdToSymbol(string $security_id): string {
+        $security_symbol = "[$security_id]";
+        if ($this->security_market_data_cache_getter) {
+            $market_data = $this->getSecurityMarketData($security_id);
+            if (!empty($market_data->stock)) {
+                $stock = $market_data->stock;
+                $security_symbol = "$stock->primaryExchange:$stock->symbol";
+            }
+        }
+        return $security_symbol;
     }
 
     public function getETFDetails(string $funding_id): object {
@@ -177,13 +197,35 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
         );
     }
 
-    public function getSecurityMarketData(string $security_id): object {
-        return $this->doGraphQLQuery(
+    private ?\closure $security_market_data_cache_setter = NULL;
+    private ?\closure $security_market_data_cache_getter = NULL;
+    public function setSecurityMarketDataCache($security_market_data_cache_getter, $security_market_data_cache_setter) : void {
+        $this->security_market_data_cache_getter = $security_market_data_cache_getter;
+        $this->security_market_data_cache_setter = $security_market_data_cache_setter;
+    }
+
+    public function getSecurityMarketData(string $security_id, bool $use_cache = TRUE): object {
+        if (empty($this->security_market_data_cache_getter) || empty($this->security_market_data_cache_setter)) {
+            $use_cache = FALSE;
+        }
+        if ($use_cache) {
+            $fn = $this->security_market_data_cache_getter;
+            $cached_value = $fn($security_id);
+            if ($cached_value) {
+                return $cached_value;
+            }
+        }
+        $value = $this->doGraphQLQuery(
             'FetchSecurityMarketData',
             ['id' => $security_id],
             'security',
             'object',
         );
+        if ($use_cache) {
+            $fn = $this->security_market_data_cache_setter;
+            $value = $fn($security_id, $value);
+        }
+        return $value;
     }
 
     public function searchSecurity(string $query): array {
