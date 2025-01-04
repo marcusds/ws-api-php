@@ -61,7 +61,7 @@ $session = json_decode(file_get_contents(__DIR__ . '/session.json'));
 $ws = WealthsimpleAPI::fromToken($session, $persist_session_fct);
 // $persist_session_fct is needed here too, because the session may be updated if the access token expired, and thus this function will be called to save the new session
 
-// Optionally define functions to cache market data, if you want transactions' descriptions to show the security's symbol instead of its ID
+// Optionally define functions to cache market data, if you want transactions' descriptions and accounts balances to show the security's symbol instead of its ID
 // eg. sec-s-e7947deb977341ff9f0ddcf13703e9a6 => TSX:XEQT
 $sec_info_getter_fn = function (string $ws_security_id) {
     if ($market_data = @file_get_contents(sys_get_temp_dir() . "/ws-api-$ws_security_id.json")) {
