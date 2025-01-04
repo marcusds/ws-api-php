@@ -68,7 +68,7 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
         } elseif ($account->unifiedAccountType === 'MANAGED_JOINT') {
             $account->description = "Non-registered: managed - joint";
         } elseif ($account->unifiedAccountType === 'SELF_DIRECTED_CRYPTO') {
-            $account->description = "Crypt";
+            $account->description = "Crypto";
         }
         // @TODO Add other types
     }
