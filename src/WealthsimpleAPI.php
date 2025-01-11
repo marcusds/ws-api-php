@@ -4,6 +4,10 @@ namespace PPFinances\Wealthsimple;
 
 use PPFinances\Wealthsimple\Exceptions\WSApiException;
 
+function string_contains(?string $haystack, string $needle): bool {
+    return stripos($haystack ?? '', $needle) !== FALSE;
+}
+
 class WealthsimpleAPI extends WealthsimpleAPIBase
 {
     protected const GRAPHQL_QUERIES = [
@@ -110,7 +114,7 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             ],
             'activityFeedItems.edges',
             'array',
-            $ignore_rejected ? fn($act) => strpos($act->status ?? '', 'rejected') === FALSE : NULL,
+            $ignore_rejected ? fn($act) => empty($act->status) || (!string_contains($act->status, 'rejected') && !string_contains($act->status, 'cancelled')) : NULL,
         );
         array_walk($activities, fn($act) => $this->_activityAddDescription($act));
         return $activities;
