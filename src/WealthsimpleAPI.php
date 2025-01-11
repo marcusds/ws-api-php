@@ -69,6 +69,8 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             $account->description = "TFSA: managed - $account->currency";
         } elseif ($account->unifiedAccountType === 'SELF_DIRECTED_JOINT_NON_REGISTERED') {
             $account->description = "Non-registered: self-directed - joint";
+        } elseif ($account->unifiedAccountType === 'SELF_DIRECTED_NON_REGISTERED_MARGIN') {
+            $account->description = "Non-registered: self-directed margin";
         } elseif ($account->unifiedAccountType === 'MANAGED_JOINT') {
             $account->description = "Non-registered: managed - joint";
         } elseif ($account->unifiedAccountType === 'SELF_DIRECTED_CRYPTO') {
