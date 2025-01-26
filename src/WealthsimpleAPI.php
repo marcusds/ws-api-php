@@ -146,6 +146,8 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
         } elseif (($act->type === 'DEPOSIT' || $act->type === 'WITHDRAWAL') && ($act->subType === 'E_TRANSFER' || $act->subType === 'E_TRANSFER_FUNDING')) {
             $direction = $act->type === 'WITHDRAWAL' ? 'to' : 'from';
             $act->description = ucfirst(strtolower($act->type)) . ": Interac e-transfer $direction $act->eTransferName $act->eTransferEmail";
+        } elseif ($act->type === 'DEPOSIT' && $act->subType === 'PAYMENT_CARD_TRANSACTION') {
+            $act->description = ucfirst(strtolower($act->type)) . ": Debit card funding";
         } elseif ($act->subType === 'EFT') {
             $details = $this->getETFDetails($act->externalCanonicalId);
             $type = ucfirst(strtolower($act->type));
@@ -160,10 +162,16 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             $verb = ucfirst(strtolower(str_replace('_', '-', $details->transferType)));
             $act->description = "Institutional transfer: $verb " . strtoupper($details->clientAccountType) . " account transfer from $details->institutionName ****$details->redactedInstitutionAccountNumber";
         } elseif ($act->type === 'INTEREST') {
-            $act->description = "Interest";
+            if ($act->subType === 'FPL_INTEREST') {
+                $act->description = "Stock Lending Earnings";
+            } else {
+                $act->description = "Interest";
+            }
         } elseif ($act->type === 'DIVIDEND') {
             $security = $this->securityIdToSymbol($act->securityId);
             $act->description = "Dividend: $security";
+        } elseif ($act->type === 'FUNDS_CONVERSION') {
+            $act->description = "Funds converted: $act->currency from " . ($act->currency === 'CAD' ? 'USD' : 'CAD');
         }
         // @TODO Add other types
     }
