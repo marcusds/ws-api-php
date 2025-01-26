@@ -110,7 +110,7 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
                 'orderBy' => $order_by,
                 'first'   => $how_many,
                 'condition' => [
-                    'endDate'    => date('Y-m-d\TH:i:s.999\Z', strtotime('tomorrow')-1),
+                    'endDate'    => date('Y-m-d\TH:i:s.999\Z', strtotime('+1 day')),
                     'accountIds' => [$account_id],
                 ],
             ],
