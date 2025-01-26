@@ -141,9 +141,8 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
         } elseif ($act->type === 'DIY_BUY' || $act->type === 'DIY_SELL') {
             $verb = ucfirst(strtolower(str_replace('_', ' ', $act->subType)));
             $action = $act->type === 'DIY_BUY' ? 'buy' : 'sell';
-            $status = strtolower(str_replace('_', ' ', $act->status));
             $security = $this->securityIdToSymbol($act->securityId);
-            $act->description = "$verb $action: $status " . ((float) $act->assetQuantity) . " x $security @ " . ($act->amount / $act->assetQuantity);
+            $act->description = "$verb: $action " . ((float) $act->assetQuantity) . " x $security @ " . ($act->amount / $act->assetQuantity);
         } elseif (($act->type === 'DEPOSIT' || $act->type === 'WITHDRAWAL') && ($act->subType === 'E_TRANSFER' || $act->subType === 'E_TRANSFER_FUNDING')) {
             $direction = $act->type === 'WITHDRAWAL' ? 'to' : 'from';
             $act->description = ucfirst(strtolower($act->type)) . ": Interac e-transfer $direction $act->eTransferName $act->eTransferEmail";
