@@ -185,6 +185,9 @@ abstract class WealthsimpleAPIBase
         throw new ManualLoginRequired("Failed to use OAuth token. Manual login needed.");
     }
 
+    public const SCOPE_READ_ONLY  = 'invest.read trade.read tax.read';
+    public const SCOPE_READ_WRITE = 'invest.read trade.read tax.read invest.write trade.write tax.write';
+
     /**
      * Login on the Wealthsimple API using the provided credentials.
      *
@@ -192,18 +195,19 @@ abstract class WealthsimpleAPIBase
      * @param string        $password            Password
      * @param string|null   $otp_answer          2FA code, if required
      * @param callable|null $persist_session_fct Function to persist the session object, upon successful login.
+     * @param string        $scope               Scope to request; See WealthsimpleAPI::SCOPE_*; Default to SCOPE_READ_ONLY.
      *
      * @return WSAPISession On success, the session object is returned. You should store this object in your database for future use.
      * @throws LoginFailedException
      * @throws OTPRequiredException
      */
-    private function loginInternal(string $username, string $password, ?string $otp_answer = NULL, ?callable $persist_session_fct = NULL) : WSAPISession {
+    private function loginInternal(string $username, string $password, ?string $otp_answer = NULL, ?callable $persist_session_fct = NULL, string $scope = self::SCOPE_READ_ONLY) : WSAPISession {
         $data = (object) [
             'grant_type'     => 'password',
             'username'       => $username,
             'password'       => $password,
             'skip_provision' => 'true',
-            'scope'          => 'invest.read invest.write trade.read trade.write tax.read tax.write',
+            'scope'          => $scope,
             'client_id'      => $this->session->client_id,
             'otp_claim'      => NULL,
         ];
@@ -291,14 +295,15 @@ abstract class WealthsimpleAPIBase
      * @param string        $password            Password
      * @param string|null   $otp_answer          2FA code, if required
      * @param callable|null $persist_session_fct Function to persist the session object, upon successful login.
+     * @param string        $scope               Scope to request; See WealthsimpleAPI::SCOPE_*; Default to SCOPE_READ_ONLY.
      *
      * @return void
      * @throws LoginFailedException
      * @throws OTPRequiredException
      */
-    public static function login(string $username, string $password, ?string $otp_answer = NULL, ?callable $persist_session_fct = NULL) : WSAPISession {
+    public static function login(string $username, string $password, ?string $otp_answer = NULL, ?callable $persist_session_fct = NULL, string $scope = self::SCOPE_READ_ONLY) : WSAPISession {
         $ws = new WealthsimpleAPI();
-        return $ws->loginInternal($username, $password, $otp_answer, $persist_session_fct);
+        return $ws->loginInternal($username, $password, $otp_answer, $persist_session_fct, $scope);
     }
 
     /**
