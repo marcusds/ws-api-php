@@ -172,6 +172,8 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             $act->description = "Dividend: $security";
         } elseif ($act->type === 'FUNDS_CONVERSION') {
             $act->description = "Funds converted: $act->currency from " . ($act->currency === 'CAD' ? 'USD' : 'CAD');
+        } elseif ($act->type === 'NON_RESIDENT_TAX') {
+            $act->description = "Non-resident tax";
         }
         // @TODO Add other types
     }
