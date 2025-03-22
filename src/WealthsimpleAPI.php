@@ -116,7 +116,7 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             ],
             'activityFeedItems.edges',
             'array',
-            $ignore_rejected ? fn($act) => empty($act->status) || (!string_contains($act->status, 'rejected') && !string_contains($act->status, 'cancelled')) : NULL,
+            fn($act) => $act->type != 'LEGACY_TRANSFER' && (!$ignore_rejected || empty($act->status) || (!string_contains($act->status, 'rejected') && !string_contains($act->status, 'cancelled'))),
         );
         array_walk($activities, fn($act) => $this->_activityAddDescription($act));
         return $activities;
