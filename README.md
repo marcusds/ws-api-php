@@ -31,6 +31,9 @@ $persist_session_fct = function (WSAPISession $session) {
     file_put_contents(__DIR__ . '/session.json', $json);
 };
 
+// If you want, you can set a custom User-Agent for the requests to the WealthSimple API:
+WealthsimpleAPI::setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36");
+
 // 2. If it's the first time you run this, create a new session using the username & password (and TOTP answer, if needed). Do NOT save those infos in your code!
 if (!file_exists(__DIR__ . '/session.json')) {
     $totp_code = null;

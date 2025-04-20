@@ -18,6 +18,12 @@ abstract class WealthsimpleAPIBase
 
     protected WSAPISession $session;
 
+    protected static ?string $user_agent = NULL;
+
+    public static function setUserAgent(string $user_agent) {
+        static::$user_agent = $user_agent;
+    }
+
     private static function uuidv4() : string {
         $data = random_bytes(16);
         $data[6] = chr(ord($data[6]) & 0x0f | 0x40); // set version to 0100
@@ -45,6 +51,9 @@ abstract class WealthsimpleAPIBase
         }
         if (!empty($this->session->wssdi)) {
             $headers[] = "x-ws-device-id: {$this->session->wssdi}";
+        }
+        if (!empty(static::$user_agent)) {
+            $headers[] = "User-Agent: " . static::$user_agent;
         }
 
         curl_setopt($ch, CURLOPT_URL, $url);
