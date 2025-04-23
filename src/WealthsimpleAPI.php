@@ -63,6 +63,8 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             $account->description = "RRSP: self-directed - $account->currency";
         } elseif ($account->unifiedAccountType === 'MANAGED_RRSP') {
             $account->description = "RRSP: managed - $account->currency";
+        } elseif ($account->unifiedAccountType === 'SELF_DIRECTED_SPOUSAL_RRSP') {
+            $account->description = "RRSP: self-directed spousal - $account->currency";
         } elseif ($account->unifiedAccountType === 'SELF_DIRECTED_TFSA') {
             $account->description = "TFSA: self-directed - $account->currency";
         } elseif ($account->unifiedAccountType === 'MANAGED_TFSA') {
@@ -75,6 +77,8 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             $account->description = "Non-registered: managed - joint";
         } elseif ($account->unifiedAccountType === 'SELF_DIRECTED_CRYPTO') {
             $account->description = "Crypto";
+        } elseif ($account->unifiedAccountType === 'SELF_DIRECTED_RRIF') {
+            $account->description = "RRIF: self-directed - $account->currency";
         }
         // @TODO Add other types
     }
@@ -174,6 +178,28 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             $act->description = "Funds converted: $act->currency from " . ($act->currency === 'CAD' ? 'USD' : 'CAD');
         } elseif ($act->type === 'NON_RESIDENT_TAX') {
             $act->description = "Non-resident tax";
+        } elseif (($act->type === 'DEPOSIT' || $act->type === 'WITHDRAWAL') && $act->subType === 'AFT') {
+            // Refs:
+            //   https://www.payments.ca/payment-resources/iso-20022/automatic-funds-transfer
+            //   https://www.payments.ca/compelling-new-evidence-strong-link-between-aft-and-canadas-cheque-decline
+            // 2nd ref states: "AFTs are electronic direct credit or direct debit transactions, commonly known in Canada as direct deposits or pre-authorized debits (PADs)."
+            $type = $act->type === 'DEPOSIT' ? 'Direct deposit' : 'Pre-authorized debit';
+            $direction = $type === 'Direct deposit' ? 'from' : 'to';
+            $institution = !empty($act->aftOriginatorName) ? $act->aftOriginatorName : $act->externalCanonicalId;
+            $act->description = "$type: $direction $institution";
+        } elseif ($act->type === 'WITHDRAWAL' && $act->subType === 'BILL_PAY') {
+            $name = !empty($act->billPayPayeeNickname) ? $act->billPayPayeeNickname : $act->billPayCompanyName;
+            $number = $act->redactedExternalAccountNumber;
+            $act->description = "Withdrawal: Bill pay $name $number";
+        } elseif ($act->type === 'P2P_PAYMENT' && ($act->subType === 'SEND' || $act->subType === 'SEND_RECEIVED')) {
+            $direction = $act->subType === 'SEND' ? 'sent to' : 'received from';
+            $p2pHandle = $act->p2pHandle;
+            $act->description = "Cash $direction $p2pHandle";
+        } elseif ($act->type === 'PROMOTION' && $act->subType === 'INCENTIVE_BONUS') {
+            $subtype = ucfirst(strtolower(str_replace('_', ' ', $act->subType)));
+            $act->description = "Promotion: $subtype";
+        } elseif ($act->type === 'REFERRAL') {
+            $act->description = "Referral";
         }
         // @TODO Add other types
     }
