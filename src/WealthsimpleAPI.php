@@ -52,7 +52,7 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
     ): array {
         $all_accounts = [];
         do {
-            $response = $this->doGraphQLQuery(
+            $response = $this->doGraphQLQueryPaginated(
                 'FetchAllAccounts',
                 [
                     'identityId' => $this->getTokenInfo()->identity_canonical_id,

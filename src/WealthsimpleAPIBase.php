@@ -244,7 +244,7 @@ abstract class WealthsimpleAPIBase
         return $this->session;
     }
 
-    protected function doGraphQLQuery(string $query_name, array $variables, string $data_response_path, string $expect_type, ?callable $filter = NULL, bool $cursor = FALSE) {
+    protected function doGraphQLQuery(string $query_name, array $variables, string $data_response_path, string $expect_type, ?callable $filter = NULL) {
         $query = [
             'operationName' => $query_name,
             'query'         => static::GRAPHQL_QUERIES[$query_name],
@@ -285,6 +285,51 @@ abstract class WealthsimpleAPIBase
             $data = array_filter($data, $filter);
         }
 
+        return $data;
+    }
+
+	protected function doGraphQLQueryPaginated(string $query_name, array $variables, string $data_response_path, string $expect_type, ?callable $filter = NULL, bool $cursor = FALSE) {
+        $query = [
+            'operationName' => $query_name,
+            'query'         => static::GRAPHQL_QUERIES[$query_name],
+            'variables'     => $variables,
+        ];
+
+        $headers = [
+            "x-ws-profile: trade",
+            "x-ws-api-version: " . static::GRAPHQL_VERSION,
+            "x-ws-locale: en-CA",
+            "x-platform-os: web",
+        ];
+        $response = $this->sendPOST(static::GRAPHQL_URL, $query, $headers);
+        $response = json_decode($response);
+
+        if (!property_exists($response, 'data')) {
+            throw new WSApiException("GraphQL query failed: $query_name", 0, $response);
+        }
+
+        $data = $response->data;
+        foreach (explode('.', $data_response_path) as $key) {
+            if (!property_exists($data, $key)) {
+                throw new WSApiException("GraphQL query failed: $query_name", 0, $response);
+            }
+            $data = $data->{$key};
+        }
+
+        if (($expect_type === 'array' && !is_array($data)) || ($expect_type === 'object' && !is_object($data))) {
+            throw new WSApiException("GraphQL query failed: $query_name", 0, $response);
+        }
+
+        if ($key === 'edges') {
+            // Extract nodes from edges
+            $data = array_map(fn($edge) => $edge->node, $data);
+        }
+
+        if ($filter) {
+            $data = array_filter($data, $filter);
+        }
+
+		$endCursor = null;
 
 		if ($cursor) {
         	$path = $response->data;
@@ -293,11 +338,9 @@ abstract class WealthsimpleAPIBase
 			}
 
 			$endCursor = (isset($path->pageInfo->hasNextPage) && $path->pageInfo->hasNextPage) ? $path->pageInfo->endCursor : NULL;
-			return [ 'data' => $data, 'endCursor' => $endCursor ];
-
 		}
 
-        return $data;
+        return [ 'data' => $data, 'endCursor' => $endCursor ];
     }
 
     protected function getTokenInfo() {
