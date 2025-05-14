@@ -238,13 +238,13 @@ abstract class WealthsimpleAPIBase
         $this->session->refresh_token = $response->refresh_token;
 
         if ($persist_session_fct) {
-            $persist_session_fct($this->session);
+            $persist_session_fct($this->session, $username);
         }
 
         return $this->session;
     }
 
-    protected function doGraphQLQuery(string $query_name, array $variables, string $data_response_path, string $expect_type, ?callable $filter = NULL) {
+    protected function doGraphQLQuery(string $query_name, array $variables, string $data_response_path, string $expect_type, ?callable $filter = NULL, bool $cursor = FALSE) {
         $query = [
             'operationName' => $query_name,
             'query'         => static::GRAPHQL_QUERIES[$query_name],
@@ -284,6 +284,18 @@ abstract class WealthsimpleAPIBase
         if ($filter) {
             $data = array_filter($data, $filter);
         }
+
+
+		if ($cursor) {
+        	$path = $response->data;
+			foreach (array_slice(explode('.', $data_response_path), 0, -1) as $key) {
+            	$path = $path->{$key};
+			}
+
+			$endCursor = (isset($path->pageInfo->hasNextPage) && $path->pageInfo->hasNextPage) ? $path->pageInfo->endCursor : NULL;
+			return [ 'data' => $data, 'endCursor' => $endCursor ];
+
+		}
 
         return $data;
     }
