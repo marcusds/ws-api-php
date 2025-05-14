@@ -19,9 +19,14 @@ abstract class WealthsimpleAPIBase
     protected WSAPISession $session;
 
     protected static ?string $user_agent = NULL;
+    protected static ?string $username = NULL;
 
     public static function setUserAgent(string $user_agent) {
         static::$user_agent = $user_agent;
+    }
+
+    public static function setUsername(string $username) {
+        static::$username = $username;
     }
 
     private static function uuidv4() : string {
@@ -185,7 +190,7 @@ abstract class WealthsimpleAPIBase
                 $this->session->access_token = $response->access_token;
                 $this->session->refresh_token = $response->refresh_token;
                 if ($persist_session_fct) {
-                    $persist_session_fct($this->session);
+                    $persist_session_fct($this->session, self::$username);
                 }
                 return;
             }
