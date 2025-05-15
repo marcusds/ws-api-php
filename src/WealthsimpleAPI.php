@@ -73,7 +73,7 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
         } while ($endCursor);
 
 		array_walk($all_accounts, fn($account) => $this->_accountAddDescription($account));
-        return $all_accounts;
+		return $all_accounts;
     }
 
     private function _accountAddDescription($account) {
