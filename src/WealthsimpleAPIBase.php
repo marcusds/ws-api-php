@@ -334,16 +334,16 @@ abstract class WealthsimpleAPIBase
             $data = array_filter($data, $filter);
         }
 
-		$endCursor = null;
+        $endCursor = null;
 
-		if ($cursor) {
-        	$path = $response->data;
-			foreach (array_slice(explode('.', $data_response_path), 0, -1) as $key) {
-            	$path = $path->{$key};
-			}
+        if ($cursor) {
+            $path = $response->data;
+            foreach (array_slice(explode('.', $data_response_path), 0, -1) as $key) {
+                $path = $path->{$key};
+            }
 
-			$endCursor = (isset($path->pageInfo->hasNextPage) && $path->pageInfo->hasNextPage) ? $path->pageInfo->endCursor : NULL;
-		}
+            $endCursor = (isset($path->pageInfo->hasNextPage) && $path->pageInfo->hasNextPage) ? $path->pageInfo->endCursor : NULL;
+        }
 
         return [ 'data' => $data, 'endCursor' => $endCursor ];
     }
