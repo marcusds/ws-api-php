@@ -19,14 +19,9 @@ abstract class WealthsimpleAPIBase
     protected WSAPISession $session;
 
     protected static ?string $user_agent = NULL;
-    protected static ?string $username = NULL;
 
     public static function setUserAgent(string $user_agent) {
         static::$user_agent = $user_agent;
-    }
-
-    public static function setUsername(string $username) {
-        static::$username = $username;
     }
 
     private static function uuidv4() : string {
@@ -156,12 +151,13 @@ abstract class WealthsimpleAPIBase
      * Check if the OAuth token is still valid. If not, try to refresh it.
      *
      * @param callable|null $persist_session_fct Function to persist the session object, upon successful refresh. Will receive a single parameter: the session object, which you can JSON-encode to persist. Careful! This object contains sensitive tokens.
+     * @param string|null   $username            Username to use for the session.
      *
      * @return void
      * @throws ManualLoginRequired If the OAuth token is invalid and cannot be refreshed.
      * @throws WSApiException
      */
-    private function checkOAuthToken(?callable $persist_session_fct = NULL) : void {
+    private function checkOAuthToken(?callable $persist_session_fct = NULL, ?string $username = null) : void {
         if (!empty($this->session->access_token)) {
             // Access token is working?
             try {
@@ -190,7 +186,7 @@ abstract class WealthsimpleAPIBase
                 $this->session->access_token = $response->access_token;
                 $this->session->refresh_token = $response->refresh_token;
                 if ($persist_session_fct) {
-                    $persist_session_fct($this->session, self::$username);
+                    $persist_session_fct($this->session, $username);
                 }
                 return;
             }
@@ -380,14 +376,15 @@ abstract class WealthsimpleAPIBase
      *
      * @param object        $session             Session object
      * @param callable|null $persist_session_fct Function to persist the session object, upon successful login. Will receive a single parameter: the session object, which you can JSON-encode to persist. Careful! This object contains sensitive tokens.
+     * @param string|null   $username            Username to use for the session.
      *
      * @return WealthsimpleAPI
      * @throws ManualLoginRequired
      * @throws WSApiException
      */
-    public static function fromToken(object $session, ?callable $persist_session_fct = NULL) : WealthsimpleAPI {
+    public static function fromToken(object $session, ?callable $persist_session_fct = NULL, ?string $username = NULL) : WealthsimpleAPI {
         $ws = new WealthsimpleAPI($session);
-        $ws->checkOAuthToken($persist_session_fct);
+        $ws->checkOAuthToken($persist_session_fct, $username);
         return $ws;
     }
 }
