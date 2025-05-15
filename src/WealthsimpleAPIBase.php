@@ -289,7 +289,7 @@ abstract class WealthsimpleAPIBase
         return $data;
     }
 
-	protected function doGraphQLQueryPaginated(string $query_name, array $variables, string $data_response_path, string $expect_type, ?callable $filter = NULL, bool $cursor = FALSE) {
+    protected function doGraphQLQueryPaginated(string $query_name, array $variables, string $data_response_path, string $expect_type, ?callable $filter = NULL, bool $cursor = FALSE) {
         $query = [
             'operationName' => $query_name,
             'query'         => static::GRAPHQL_QUERIES[$query_name],
