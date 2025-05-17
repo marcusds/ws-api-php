@@ -10,6 +10,8 @@ use PPFinances\Wealthsimple\Exceptions\UnexpectedException;
 use PPFinances\Wealthsimple\Exceptions\WSApiException;
 use PPFinances\Wealthsimple\Sessions\WSAPISession;
 
+const LOAD_ALL_PAGES = TRUE;
+
 abstract class WealthsimpleAPIBase
 {
     protected const OAUTH_BASE_URL  = 'https://api.production.wealthsimple.com/v1/oauth/v2';
@@ -150,14 +152,14 @@ abstract class WealthsimpleAPIBase
     /**
      * Check if the OAuth token is still valid. If not, try to refresh it.
      *
-     * @param callable|null $persist_session_fct Function to persist the session object, upon successful refresh. Will receive a single parameter: the session object, which you can JSON-encode to persist. Careful! This object contains sensitive tokens.
+     * @param callable|null $persist_session_fct Function to persist the session object, upon successful login. Will receive a two parameters: the session object, which you can JSON-encode to persist, and the username. Careful! This object contains sensitive tokens.
      * @param string|null   $username            Username to use for the session.
      *
      * @return void
      * @throws ManualLoginRequired If the OAuth token is invalid and cannot be refreshed.
      * @throws WSApiException
      */
-    private function checkOAuthToken(?callable $persist_session_fct = NULL, ?string $username = null) : void {
+    private function checkOAuthToken(?callable $persist_session_fct = NULL, ?string $username = NULL) : void {
         if (!empty($this->session->access_token)) {
             // Access token is working?
             try {
@@ -201,10 +203,10 @@ abstract class WealthsimpleAPIBase
     /**
      * Login on the Wealthsimple API using the provided credentials.
      *
-     * @param string        $username            Email address
+     * @param string        $username            Wealthsimple username (email address)
      * @param string        $password            Password
      * @param string|null   $otp_answer          2FA code, if required
-     * @param callable|null $persist_session_fct Function to persist the session object, upon successful login.
+     * @param callable|null $persist_session_fct Function to persist the session object, upon successful login. Will receive a two parameters: the session object, which you can JSON-encode to persist, and the username. Careful! This object contains sensitive tokens.
      * @param string        $scope               Scope to request; See WealthsimpleAPI::SCOPE_*; Default to SCOPE_READ_ONLY.
      *
      * @return WSAPISession On success, the session object is returned. You should store this object in your database for future use.
@@ -245,7 +247,7 @@ abstract class WealthsimpleAPIBase
         return $this->session;
     }
 
-    protected function doGraphQLQuery(string $query_name, array $variables, string $data_response_path, string $expect_type, ?callable $filter = NULL) {
+    protected function doGraphQLQuery(string $query_name, array $variables, string $data_response_path, string $expect_type, ?callable $filter = NULL, bool $load_all_pages = FALSE) {
         $query = [
             'operationName' => $query_name,
             'query'         => static::GRAPHQL_QUERIES[$query_name],
@@ -266,11 +268,15 @@ abstract class WealthsimpleAPIBase
         }
 
         $data = $response->data;
+        $end_cursor = NULL;
         foreach (explode('.', $data_response_path) as $key) {
             if (!property_exists($data, $key)) {
                 throw new WSApiException("GraphQL query failed: $query_name", 0, $response);
             }
             $data = $data->{$key};
+            if (isset($data->pageInfo->hasNextPage) && $data->pageInfo->hasNextPage) {
+                $end_cursor = $data->pageInfo->endCursor;
+            }
         }
 
         if (($expect_type === 'array' && !is_array($data)) || ($expect_type === 'object' && !is_object($data))) {
@@ -284,64 +290,24 @@ abstract class WealthsimpleAPIBase
 
         if ($filter) {
             $data = array_filter($data, $filter);
+        }
+
+        if ($expect_type === 'array') {
+            $data = array_values($data);
+        }
+
+        if ($load_all_pages) {
+            if ($expect_type !== 'array') {
+                throw new UnexpectedException("Can't load all pages for GraphQL queries that do not return arrays", 0);
+            }
+            if ($end_cursor) {
+                $variables['cursor'] = $end_cursor;
+                $more_data = $this->doGraphQLQuery($query_name, $variables, $data_response_path, $expect_type, $filter, TRUE);
+                $data = array_merge($data, $more_data);
+            }
         }
 
         return $data;
-    }
-
-    protected function doGraphQLQueryPaginated(string $query_name, array $variables, string $data_response_path, string $expect_type, ?callable $filter = NULL, bool $cursor = FALSE) {
-        $query = [
-            'operationName' => $query_name,
-            'query'         => static::GRAPHQL_QUERIES[$query_name],
-            'variables'     => $variables,
-        ];
-
-        $headers = [
-            "x-ws-profile: trade",
-            "x-ws-api-version: " . static::GRAPHQL_VERSION,
-            "x-ws-locale: en-CA",
-            "x-platform-os: web",
-        ];
-        $response = $this->sendPOST(static::GRAPHQL_URL, $query, $headers);
-        $response = json_decode($response);
-
-        if (!property_exists($response, 'data')) {
-            throw new WSApiException("GraphQL query failed: $query_name", 0, $response);
-        }
-
-        $data = $response->data;
-        foreach (explode('.', $data_response_path) as $key) {
-            if (!property_exists($data, $key)) {
-                throw new WSApiException("GraphQL query failed: $query_name", 0, $response);
-            }
-            $data = $data->{$key};
-        }
-
-        if (($expect_type === 'array' && !is_array($data)) || ($expect_type === 'object' && !is_object($data))) {
-            throw new WSApiException("GraphQL query failed: $query_name", 0, $response);
-        }
-
-        if ($key === 'edges') {
-            // Extract nodes from edges
-            $data = array_map(fn($edge) => $edge->node, $data);
-        }
-
-        if ($filter) {
-            $data = array_filter($data, $filter);
-        }
-
-        $endCursor = null;
-
-        if ($cursor) {
-            $path = $response->data;
-            foreach (array_slice(explode('.', $data_response_path), 0, -1) as $key) {
-                $path = $path->{$key};
-            }
-
-            $endCursor = (isset($path->pageInfo->hasNextPage) && $path->pageInfo->hasNextPage) ? $path->pageInfo->endCursor : NULL;
-        }
-
-        return [ 'data' => $data, 'endCursor' => $endCursor ];
     }
 
     protected function getTokenInfo() {
@@ -375,8 +341,8 @@ abstract class WealthsimpleAPIBase
      * Access the Wealthsimple API using an existing session object, returned by a previous call to login().
      *
      * @param object        $session             Session object
-     * @param callable|null $persist_session_fct Function to persist the session object, upon successful login. Will receive a single parameter: the session object, which you can JSON-encode to persist. Careful! This object contains sensitive tokens.
-     * @param string|null   $username            Username to use for the session.
+     * @param callable|null $persist_session_fct Function to persist the session object, upon successful login. Will receive a two parameters: the session object, which you can JSON-encode to persist, and the username. Careful! This object contains sensitive tokens.
+     * @param string|null   $username            Wealthsimple username (email address). Will be passed as the second parameter when calling $persist_session_fct.
      *
      * @return WealthsimpleAPI
      * @throws ManualLoginRequired

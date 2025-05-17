@@ -38,42 +38,12 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
                 'identity.accounts.edges',
                 'array',
                 $open_only ? fn($account) => $account->status === 'open' : NULL,
+                LOAD_ALL_PAGES,
             );
             array_walk($accounts, fn($account) => $this->_accountAddDescription($account));
             $accounts_cache[$cache_key] = $accounts;
         }
         return $accounts_cache[$cache_key];
-    }
-
-    public function getAllAccounts(
-        array $filter = [],
-        int $page_size = 25,
-        string $cursor = null
-    ): array {
-        $all_accounts = [];
-        do {
-            $response = $this->doGraphQLQueryPaginated(
-                'FetchAllAccounts',
-                [
-                    'identityId' => $this->getTokenInfo()->identity_canonical_id,
-                    'filter' => $filter,
-                    'pageSize' => $page_size,
-                    'cursor' => $endCursor ?? $cursor,
-                ],
-                'identity.accounts.edges',
-                'array',
-                NULL,
-                TRUE
-            );
-            $all_accounts = array_merge($all_accounts, $response['data'] ?? []);
-            $endCursor = null;
-            if(isset($response['endCursor'])) {
-                $endCursor = $response['endCursor'] ?? null;
-            }
-        } while ($endCursor);
-
-        array_walk($all_accounts, fn($account) => $this->_accountAddDescription($account));
-        return $all_accounts;
     }
 
     private function _accountAddDescription($account) {
@@ -142,15 +112,7 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
         return $balances;
     }
 
-    public function getAccountHistoricalFinancials(
-        string $account_id,
-        string $currency,
-        string $start_date = null,
-        string $end_date = null,
-        string $resolution = 'WEEKLY',
-        int $first = null,
-        string $cursor = null
-    ): array {
+    public function getAccountHistoricalFinancials(string $account_id, string $currency, string $start_date = NULL, string $end_date = NULL, string $resolution = 'WEEKLY', int $first = NULL, string $cursor = NULL): array {
         return $this->doGraphQLQuery(
             'FetchAccountHistoricalFinancials',
             [
@@ -167,14 +129,7 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
         );
     }
 
-    public function getIdentityHistoricalFinancials(
-        array $account_ids = [],
-        string $currency = 'CAD',
-        string $start_date = null,
-        string $end_date = null,
-        int $first = null,
-        string $cursor = null,
-    ): array {
+    public function getIdentityHistoricalFinancials(array $account_ids = [], string $currency = 'CAD', string $start_date = NULL, string $end_date = NULL, int $first = NULL, string $cursor = NULL): array {
         return $this->doGraphQLQuery(
             'FetchIdentityHistoricalFinancials',
             [
@@ -188,8 +143,7 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
             ],
             'identity.financials.historicalDaily.edges',
             'array',
-            null,
-            true
+            NULL,
         );
     }
 

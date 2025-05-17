@@ -23,24 +23,28 @@ use PPFinances\Wealthsimple\Sessions\WSAPISession;
 use PPFinances\Wealthsimple\WealthsimpleAPI;
 
 // 1. Define a function that will be called when the session is created or updated. Persist the session to a safe place
-$persist_session_fct = function (WSAPISession $session) {
+$persist_session_fct = function (WSAPISession $session, string $username) {
     $json = json_encode($session);
     // @TODO Save $json somewhere safe; it contains tokens that can be used to empty your Wealthsimple account, so treat it with respect!
     // i.e. don't store it in a Git repository, or anywhere it can be accessed by others!
     // If you are running this on your own workstation, only you have access, and your drive is encrypted, it's OK to save it to a file:
-    file_put_contents(__DIR__ . '/session.json', $json);
+    file_put_contents(__DIR__ . "/session-$username.json", $json);
 };
 
 // If you want, you can set a custom User-Agent for the requests to the WealthSimple API:
 WealthsimpleAPI::setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36");
 
 // 2. If it's the first time you run this, create a new session using the username & password (and TOTP answer, if needed). Do NOT save those infos in your code!
-if (!file_exists(__DIR__ . '/session.json')) {
+$username = readline("Wealthsimple username (email): ");
+if (!file_exists(__DIR__ . "/session-$username.json")) {
     $totp_code = null;
     while (true) {
         try {
             if (empty($username)) {
                 $username = readline("Wealthsimple username (email): ");
+                if (file_exists(__DIR__ . "/session-$username.json")) {
+                    break;
+                }
             }
             if (empty($password)) {
                 $password = readline("Password: ");
@@ -60,8 +64,8 @@ if (!file_exists(__DIR__ . '/session.json')) {
 }
 
 // 3. Load the session object, and use it to instantiate the API object
-$session = json_decode(file_get_contents(__DIR__ . '/session.json'));
-$ws = WealthsimpleAPI::fromToken($session, $persist_session_fct);
+$session = json_decode(file_get_contents(__DIR__ . "/session-$username.json"));
+$ws = WealthsimpleAPI::fromToken($session, $persist_session_fct, $username);
 // $persist_session_fct is needed here too, because the session may be updated if the access token expired, and thus this function will be called to save the new session
 
 // Optionally define functions to cache market data, if you want transactions' descriptions and accounts balances to show the security's symbol instead of its ID
@@ -80,6 +84,13 @@ $ws->setSecurityMarketDataCache($sec_info_getter_fn, $sec_info_setter_fn);
 
 // 4. Use the API object to access your WS accounts
 $accounts = $ws->getAccounts();
+
+echo "All Accounts Historical Value & Gains:\n";
+$historical_fins = $ws->getIdentityHistoricalFinancials(array_map(fn ($a) => $a->id, $accounts));
+foreach ($historical_fins as $hf) {
+    echo "  - $hf->date = \$" . number_format($hf->netLiquidationValueV2->amount) . " - " . number_format($hf->netDepositsV2->amount) . " (deposits) = " . number_format($hf->netLiquidationValueV2->amount - $hf->netDepositsV2->amount) . " (gains)\n";
+}
+
 foreach ($accounts as $account) {
     echo "Account: $account->description ($account->number)\n";
     if ($account->description === $account->unifiedAccountType) {
@@ -99,13 +110,19 @@ foreach ($accounts as $account) {
     $cash_balance = (float) $balances[$account->currency === 'USD' ? 'sec-c-usd' : 'sec-c-cad'] ?? 0;
     echo "  Available (cash) balance: $cash_balance $account->currency\n";
     if (count($balances) > 1) {
-        echo "  Other positions:\n";
+        echo "  Assets:\n";
         foreach ($balances as $security => $bal) {
             if ($security === 'sec-c-cad' || $security === 'sec-c-usd') {
                 continue;
             }
             echo "  - $security x $bal\n";
         }
+    }
+
+    echo "  Historical Value & Gains:\n";
+    $historical_fins = $ws->getAccountHistoricalFinancials($account->id, $account->currency);
+    foreach ($historical_fins as $hf) {
+        echo "  - $hf->date = \$" . number_format($hf->netLiquidationValueV2->cents / 100) . " - " . number_format($hf->netDepositsV2->cents / 100) . " (deposits) = " . number_format(($hf->netLiquidationValueV2->cents - $hf->netDepositsV2->cents) / 100) . " (gains)\n";
     }
 
     $acts = $ws->getActivities($account->id);
