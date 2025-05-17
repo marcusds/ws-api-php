@@ -151,12 +151,13 @@ abstract class WealthsimpleAPIBase
      * Check if the OAuth token is still valid. If not, try to refresh it.
      *
      * @param callable|null $persist_session_fct Function to persist the session object, upon successful refresh. Will receive a single parameter: the session object, which you can JSON-encode to persist. Careful! This object contains sensitive tokens.
+     * @param string|null   $username            Username to use for the session.
      *
      * @return void
      * @throws ManualLoginRequired If the OAuth token is invalid and cannot be refreshed.
      * @throws WSApiException
      */
-    private function checkOAuthToken(?callable $persist_session_fct = NULL) : void {
+    private function checkOAuthToken(?callable $persist_session_fct = NULL, ?string $username = null) : void {
         if (!empty($this->session->access_token)) {
             // Access token is working?
             try {
@@ -185,7 +186,7 @@ abstract class WealthsimpleAPIBase
                 $this->session->access_token = $response->access_token;
                 $this->session->refresh_token = $response->refresh_token;
                 if ($persist_session_fct) {
-                    $persist_session_fct($this->session);
+                    $persist_session_fct($this->session, $username);
                 }
                 return;
             }
@@ -238,7 +239,7 @@ abstract class WealthsimpleAPIBase
         $this->session->refresh_token = $response->refresh_token;
 
         if ($persist_session_fct) {
-            $persist_session_fct($this->session);
+            $persist_session_fct($this->session, $username);
         }
 
         return $this->session;
@@ -288,6 +289,61 @@ abstract class WealthsimpleAPIBase
         return $data;
     }
 
+    protected function doGraphQLQueryPaginated(string $query_name, array $variables, string $data_response_path, string $expect_type, ?callable $filter = NULL, bool $cursor = FALSE) {
+        $query = [
+            'operationName' => $query_name,
+            'query'         => static::GRAPHQL_QUERIES[$query_name],
+            'variables'     => $variables,
+        ];
+
+        $headers = [
+            "x-ws-profile: trade",
+            "x-ws-api-version: " . static::GRAPHQL_VERSION,
+            "x-ws-locale: en-CA",
+            "x-platform-os: web",
+        ];
+        $response = $this->sendPOST(static::GRAPHQL_URL, $query, $headers);
+        $response = json_decode($response);
+
+        if (!property_exists($response, 'data')) {
+            throw new WSApiException("GraphQL query failed: $query_name", 0, $response);
+        }
+
+        $data = $response->data;
+        foreach (explode('.', $data_response_path) as $key) {
+            if (!property_exists($data, $key)) {
+                throw new WSApiException("GraphQL query failed: $query_name", 0, $response);
+            }
+            $data = $data->{$key};
+        }
+
+        if (($expect_type === 'array' && !is_array($data)) || ($expect_type === 'object' && !is_object($data))) {
+            throw new WSApiException("GraphQL query failed: $query_name", 0, $response);
+        }
+
+        if ($key === 'edges') {
+            // Extract nodes from edges
+            $data = array_map(fn($edge) => $edge->node, $data);
+        }
+
+        if ($filter) {
+            $data = array_filter($data, $filter);
+        }
+
+        $endCursor = null;
+
+        if ($cursor) {
+            $path = $response->data;
+            foreach (array_slice(explode('.', $data_response_path), 0, -1) as $key) {
+                $path = $path->{$key};
+            }
+
+            $endCursor = (isset($path->pageInfo->hasNextPage) && $path->pageInfo->hasNextPage) ? $path->pageInfo->endCursor : NULL;
+        }
+
+        return [ 'data' => $data, 'endCursor' => $endCursor ];
+    }
+
     protected function getTokenInfo() {
         if (empty($this->session->token_info)) {
             $headers = ["x-wealthsimple-client: @wealthsimple/wealthsimple"];
@@ -320,14 +376,15 @@ abstract class WealthsimpleAPIBase
      *
      * @param object        $session             Session object
      * @param callable|null $persist_session_fct Function to persist the session object, upon successful login. Will receive a single parameter: the session object, which you can JSON-encode to persist. Careful! This object contains sensitive tokens.
+     * @param string|null   $username            Username to use for the session.
      *
      * @return WealthsimpleAPI
      * @throws ManualLoginRequired
      * @throws WSApiException
      */
-    public static function fromToken(object $session, ?callable $persist_session_fct = NULL) : WealthsimpleAPI {
+    public static function fromToken(object $session, ?callable $persist_session_fct = NULL, ?string $username = NULL) : WealthsimpleAPI {
         $ws = new WealthsimpleAPI($session);
-        $ws->checkOAuthToken($persist_session_fct);
+        $ws->checkOAuthToken($persist_session_fct, $username);
         return $ws;
     }
 }
