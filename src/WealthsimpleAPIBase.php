@@ -250,7 +250,7 @@ abstract class WealthsimpleAPIBase
     protected function doGraphQLQuery(string $query_name, array $variables, string $data_response_path, string $expect_type, ?callable $filter = NULL, bool $load_all_pages = FALSE) {
         $query = [
             'operationName' => $query_name,
-            'query'         => static::GRAPHQL_QUERIES[$query_name],
+            'query'         => static::getGraphQLQuery($query_name),
             'variables'     => $variables,
         ];
 

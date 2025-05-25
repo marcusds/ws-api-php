@@ -144,3 +144,29 @@ foreach ($accounts as $account) {
     echo "\n";
 }
 ```
+
+If you'd like to implement your own GraphQL queries, you can do so by extending the `WealthsimpleAPI` class and overriding the `getGraphQLQuery` method, like so:
+```php
+class MyWealthsimpleAPI extends WealthsimpleAPI {
+    protected static function getGraphQLQuery(string $query_name): string {
+        if ($query_name === 'MyNewQuery') {
+            return 'query my_query(\$identityId: ID!, \$param1: String) { ... }';
+        }
+        return parent::getGraphQLQuery($query_name);
+    }
+    
+    public function getMyQuery() {
+        return $this->doGraphQLQuery(
+            'MyNewQuery',
+            [
+                'identityId' => $this->getTokenInfo()->identity_canonical_id,
+                'param1' => 'value1',
+            ],
+            'identity.accounts.edges',
+            'array',
+        );
+    }
+}
+```
+
+To find the GraphQL queries that WealthSimple implement, you can look in the Developer Console of your browser while using the WealthSimple web app.
