@@ -136,7 +136,7 @@ abstract class WealthsimpleAPIBase
             }
             $response = $this->sendGET($app_js_url);
             foreach (explode("\n", $response) as $line) {
-                if (preg_match('/production.*clientId:"([a-f0-9]+)"/i', $line, $re)) {
+                if (preg_match('/"production"[^}]*clientId:"([a-f0-9]+)"/i', $line, $re)) {
                     $this->session->client_id = $re[1];
                 }
             }
