@@ -35,6 +35,7 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
         case 'FetchAccountUnrealizedPnL': return "query FetchAccountUnrealizedPnL(\$id: ID!, \$currency: Currency!) {\n  account(id: \$id) {\n    id\n    financials {\n      currentCombined(currency: \$currency) {\n        id\n        unrealizedPnL {\n          amount { ...Money }\n          rate\n        }\n      }\n    }\n  }\n}\nfragment Money on Money { amount cents currency }";
         case 'FetchIdentityRealizedReturns': return "query FetchIdentityRealizedReturns(\$identityId: ID!, \$currency: Currency!, \$accountIds: [ID!], \$startDate: Date, \$accountScope: AccountScope = OWN, \$first: Int) {\n  identity(id: \$identityId) {\n    id\n    financials(filter: {accounts: \$accountIds}, accountScope: \$accountScope) {\n      realizedReturns(currency: \$currency, startDate: \$startDate) {\n        totalValue { amount cents currency }\n        securityBreakdown(first: \$first) {\n          edges {\n            node {\n              security {\n                id\n                stock { name symbol }\n              }\n              totalValue { amount cents currency }\n            }\n          }\n          pageInfo { hasNextPage endCursor }\n        }\n      }\n    }\n  }\n}";
         case 'FetchDividendsV2': return "query FetchDividendsV2(\$identityId: ID!, \$currency: Currency!, \$accountIds: [ID!], \$startDate: Date, \$accountScope: AccountScope = OWN, \$includeIssuingSecurityBreakdown: Boolean = false) {\n  identity(id: \$identityId) {\n    id\n    financials(filter: {accounts: \$accountIds}, accountScope: \$accountScope) {\n      dividendsV2(startDate: \$startDate, currency: \$currency) {\n        totalValue { amount cents currency }\n        issuingSecurityBreakdown @include(if: \$includeIssuingSecurityBreakdown) {\n          security {\n            id\n            stock { name symbol }\n          }\n          totalValue { amount cents currency }\n        }\n      }\n    }\n  }\n}";
+        case 'FetchIntraDayChartQuotes': return "query FetchIntraDayChartQuotes(\$id: ID!, \$date: Date, \$tradingSession: TradingSession, \$currency: Currency, \$period: ChartPeriod) {\n  security(id: \$id) {\n    id\n    ...IntraDayChartQuotes\n    __typename\n  }\n}\n\nfragment IntraDayChartQuotes on Security {\n  chartBarQuotes(\n    date: \$date\n    tradingSession: \$tradingSession\n    currency: \$currency\n    period: \$period\n  ) {\n    securityId\n    price\n    sessionPrice\n    timestamp\n    currency\n    marketStatus\n    __typename\n  }\n  __typename\n}";
         };
     }
 
@@ -473,6 +474,8 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
      *
      * @return object[]
      * @throws WSApiException
+     *
+     * @deprecated Use getSecurityChartQuotes() instead
      */
     public function getSecurityHistoricalQuotes(string $security_id, string $time_range = '1m'): array {
         return $this->doGraphQLQuery(
@@ -482,6 +485,29 @@ class WealthsimpleAPI extends WealthsimpleAPIBase
                 'timerange' => $time_range,
             ],
             'security.historicalQuotes',
+            'array',
+        );
+    }
+
+    /**
+     * Get historical quotes for a security.
+     *
+     * @param string $security_id     Wealthsimple security ID, from searchSecurity() response
+     * @param string $period          eg. ONE_DAY, ONE_MONTH, THREE_MONTHS, YEAR_TO_DATE, ONE_YEAR, FIVE_YEARS, etc.
+     * @param string $trading_session eg. OVERNIGHT
+     *
+     * @return object[]
+     * @throws WSApiException
+     */
+    public function getSecurityChartQuotes(string $security_id, string $period = 'ONE_MONTH', $trading_session = 'OVERNIGHT'): array {
+        return $this->doGraphQLQuery(
+            'FetchIntraDayChartQuotes',
+            [
+                'id' => $security_id,
+                'period' => $period,
+                'tradingSession' => $trading_session,
+            ],
+            'security.chartBarQuotes',
             'array',
         );
     }
