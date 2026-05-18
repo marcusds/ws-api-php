@@ -167,7 +167,7 @@ abstract class WealthsimpleAPIBase
                 // OK; access_token works
                 return;
             } catch (WSApiException $e) {
-                if (@$e->response->message !== 'Not Authorized.') {
+                if (@$e->response->message !== 'Not Authorized.' && @$e->response->errors[0]->message !== 'Not Authorized.') {
                     throw $e;
                 }
                 // Access token expired; try to refresh it below
