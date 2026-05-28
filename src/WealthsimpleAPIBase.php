@@ -251,7 +251,7 @@ abstract class WealthsimpleAPIBase
         if (empty($timestamp)) {
             return NULL;
         }
-        return date('Y-m-d\TH:i:s.u\Z', strtotime($timestamp));
+        return date('Y-m-d', strtotime($timestamp));
     }
 
     protected function doGraphQLQuery(string $query_name, array $variables, string $data_response_path, string $expect_type, ?callable $filter = NULL, bool $load_all_pages = FALSE) {
