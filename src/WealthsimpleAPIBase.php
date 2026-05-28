@@ -279,7 +279,7 @@ abstract class WealthsimpleAPIBase
         $data = $response->data;
         $end_cursor = NULL;
         foreach (explode('.', $data_response_path) as $key) {
-            if (!property_exists($data, $key)) {
+            if (!is_object($data) || !property_exists($data, $key)) {
                 throw new WSApiException("GraphQL query failed: $query_name", 0, $response);
             }
             $data = $data->{$key};
